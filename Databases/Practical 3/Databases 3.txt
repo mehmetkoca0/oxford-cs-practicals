@@ -1,0 +1,119 @@
+Q1- 
+
+EXPLAIN ANALYZE SELECT m.name FROM Movie m, Casts c, Actor a WHERE m.year > 2010 AND a.fname='Tom' AND a.lname='Hanks' AND c.pid=A.id
+
+Q2- 
+
+This plan scans and filters the actors by condition on the actor name and in paralel it scans casts  and apply hash join to these tables and materilize the result. 
+It scans and filters movies which are after 2010 and joins on condition ((c.mid = m.id)) with this new materilized table with nested loop join
+
+We have estimated costs in the explain with total estimated cost 182035. These costs are using for the query optimization.
+Actual Total Execution Time: 1065.950 ms
+1 result in the query result
+
+Q3- 
+
+Now Actual Total Execution Time:105.300 ms which is 1/10 of previous one.
+Now we are using Index Scan fro scanning Casts. That creates the real difference.
+
+Q4- 
+
+                                                                     QUERY PLAN            For no index                                                          
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop  (cost=25592.48..182035.24 rows=1 width=17) (actual time=979.466..1065.919 rows=1 loops=1)
+   Join Filter: (c.mid = m.id)
+   Rows Removed by Join Filter: 2251735
+   ->  Gather  (cost=1000.00..19807.45 rows=2961 width=21) (actual time=0.223..23.663 rows=4201 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         ->  Parallel Seq Scan on movie m  (cost=0.00..18511.35 rows=1234 width=21) (actual time=0.022..41.904 rows=1400 loops=3)
+               Filter: (year > 2010)
+               Rows Removed by Filter: 511070
+   ->  Materialize  (cost=24592.48..161961.32 rows=6 width=4) (actual time=0.208..0.224 rows=536 loops=4201)
+         ->  Gather  (cost=24592.48..161961.29 rows=6 width=4) (actual time=873.531..873.701 rows=536 loops=1)
+               Workers Planned: 2
+               Workers Launched: 2
+               ->  Parallel Hash Join  (cost=23592.48..160960.69 rows=2 width=4) (actual time=738.780..865.216 rows=179 loops=3)
+                     Hash Cond: (c.pid = a.id)
+                     ->  Parallel Seq Scan on casts c  (cost=0.00..119482.68 rows=4769468 width=8) (actual time=0.031..394.907 rows=3815282 loops=3)
+                     ->  Parallel Hash  (cost=23592.46..23592.46 rows=1 width=4) (actual time=102.359..102.360 rows=0 loops=3)
+                           Buckets: 1024  Batches: 1  Memory Usage: 40kB
+                           ->  Parallel Seq Scan on actor a  (cost=0.00..23592.46 rows=1 width=4) (actual time=73.729..98.102 rows=0 loops=3)
+                                 Filter: (((fname)::text = 'Tom'::text) AND ((lname)::text = 'Hanks'::text))
+                                 Rows Removed by Filter: 621678
+ Planning Time: 0.147 ms
+ Execution Time: 1065.950 ms
+ 
+                                                              QUERY PLAN         After Cast(pid) index                                                     
+------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+ Gather  (cost=24606.68..43122.77 rows=1 width=17) (actual time=100.281..105.271 rows=1 loops=1)
+   Workers Planned: 2
+   Workers Launched: 2
+   ->  Parallel Hash Join  (cost=23606.68..42122.67 rows=1 width=17) (actual time=83.527..91.615 rows=0 loops=3)
+         Hash Cond: (m.id = c.mid)
+         ->  Parallel Seq Scan on movie m  (cost=0.00..18511.35 rows=1234 width=21) (actual time=0.042..40.625 rows=1400 loops=3)
+               Filter: (year > 2010)
+               Rows Removed by Filter: 511070
+         ->  Parallel Hash  (cost=23606.66..23606.66 rows=2 width=4) (actual time=50.641..50.642 rows=179 loops=3)
+               Buckets: 1024  Batches: 1  Memory Usage: 40kB
+               ->  Nested Loop  (cost=0.43..23606.66 rows=2 width=4) (actual time=38.229..50.576 rows=179 loops=3)
+                     ->  Parallel Seq Scan on actor a  (cost=0.00..23592.46 rows=1 width=4) (actual time=38.214..50.530 rows=0 loops=3)
+                           Filter: (((fname)::text = 'Tom'::text) AND ((lname)::text = 'Hanks'::text))
+                           Rows Removed by Filter: 621678
+                     ->  Index Scan using ind on casts c  (cost=0.43..12.46 rows=173 width=8) (actual time=0.039..0.093 rows=536 loops=1)
+                           Index Cond: (pid = a.id)
+ Planning Time: 0.216 ms
+ Execution Time: 105.300 ms
+(18 rows)
+
+
+
+                                                               QUERY PLAN      After Cast(pid) and Actor(lname) index                                                            
+-----------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop  (cost=1000.86..20253.98 rows=21885 width=17) (actual time=0.720..157.380 rows=2251736 loops=1)
+   ->  Gather  (cost=1000.00..19867.95 rows=3566 width=17) (actual time=0.489..1.657 rows=4201 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         ->  Parallel Seq Scan on movie m  (cost=0.00..18511.35 rows=1486 width=17) (actual time=0.065..27.380 rows=1400 loops=3)
+               Filter: (year > 2010)
+               Rows Removed by Filter: 511070
+   ->  Materialize  (cost=0.86..118.59 rows=6 width=0) (actual time=0.000..0.014 rows=536 loops=4201)
+         ->  Nested Loop  (cost=0.86..118.56 rows=6 width=0) (actual time=0.222..0.542 rows=536 loops=1)
+               ->  Index Scan using ind2 on actor a  (cost=0.43..109.23 rows=1 width=4) (actual time=0.165..0.198 rows=1 loops=1)
+                     Index Cond: ((lname)::text = 'Hanks'::text)
+                     Filter: ((fname)::text = 'Tom'::text)
+                     Rows Removed by Filter: 60
+               ->  Index Only Scan using ind1 on casts c  (cost=0.43..7.55 rows=178 width=4) (actual time=0.052..0.209 rows=536 loops=1)
+                     Index Cond: (pid = a.id)
+                     Heap Fetches: 0
+ Planning Time: 1.304 ms
+ Execution Time: 201.627 ms
+(18 rows)
+
+
+
+Cast(pid) and movie(year) and actor(lname) indexes are necessary to efficiently process the query. They are necessary because Seq Scan takes too much time.
+
+My best execution time is 3.369 ms.
+
+Evaluation plan:
+
+Hash Join  (cost=158.23..6750.71 rows=1 width=17) (actual time=2.875..3.339 rows=1 loops=1)
+   Hash Cond: (m.id = c.mid)
+   ->  Bitmap Heap Scan on movie m  (cost=35.56..6616.84 rows=2985 width=21) (actual time=0.559..2.861 rows=4201 loops=1)
+         Recheck Cond: (year > 2010)
+         Heap Blocks: exact=2784
+         ->  Bitmap Index Scan on ind4  (cost=0.00..34.82 rows=2985 width=0) (actual time=0.246..0.247 rows=4201 loops=1)
+               Index Cond: (year > 2010)
+   ->  Hash  (cost=122.59..122.59 rows=6 width=4) (actual time=0.180..0.181 rows=536 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 27kB
+         ->  Nested Loop  (cost=0.86..122.59 rows=6 width=4) (actual time=0.027..0.130 rows=536 loops=1)
+               ->  Index Scan using ind3 on actor a  (cost=0.43..108.40 rows=1 width=4) (actual time=0.019..0.031 rows=1 loops=1)
+                     Index Cond: ((lname)::text = 'Hanks'::text)
+                     Filter: ((fname)::text = 'Tom'::text)
+                     Rows Removed by Filter: 60
+               ->  Index Scan using ind on casts c  (cost=0.43..12.46 rows=173 width=8) (actual time=0.007..0.060 rows=536 loops=1)
+                     Index Cond: (pid = a.id)

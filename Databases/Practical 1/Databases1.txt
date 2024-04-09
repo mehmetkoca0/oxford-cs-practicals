@@ -1,0 +1,102 @@
+SELECT DISTINCT S.sname, E.grade FROM student S , course C, enroll E WHERE S.sid= E.sid AND E.cno=C.cno AND C.cname='Thermodynamics' AND E.dname=C.dname 
+
+        sname        | grade 
+---------------------+-------
+ Andermanthenol, K.  |     4
+ Bates, M.           |     2
+ Borchart, Sandra L. |     3
+ Jacobs, T.          |     3
+ June, Granson       |     3
+ Starry, J.          |   2.5
+ Villa-lobos, M.     |   3.5
+
+
+SELECT C.cname, S.pname FROM course C, section S,  enroll E WHERE C.cno=S.cno AND E.sid=16 AND E.cno=C.cno AND E.sectno= S.sectno AND E.dname=C.dname AND E.dname=S.dname
+
+          cname           |   pname   
+--------------------------+-----------
+ Compiler Construction    | Clark, E.
+ Intro to Data Structures | Jones, J.
+ Intro to Programming     | Jones, J.
+ Intro to Programming     | Smith, S.
+
+
+
+SELECT DISTINCT M.dname FROM student S, major M WHERE S.age<19 AND S.sid=M.sid 
+
+         dname          
+------------------------
+ Chemical Engineering
+ Civil Engineering
+ Computer Sciences
+ Industrial Engineering
+ Mathematics
+
+
+SELECT DISTINCT C.cno, S.sectno FROM course C, section S WHERE S.cno=C.cno AND S.dname=C.dname AND 12> ( SELECT COUNT(*) FROM student T, enroll E WHERE T.sid=E.sid AND E.cno=C.cno AND E.sectno=S.sectno AND E.dname=C.dname)
+
+
+ cno | sectno 
+-----+--------
+ 302 |      1
+ 302 |      2
+ 310 |      1
+ 365 |      1
+ 375 |      1
+ 461 |      1
+ 462 |      1
+ 467 |      1
+ 514 |      1
+ 561 |      1
+
+
+INSERT INTO prof (pname,dname) VALUES ('Benedikt, M.','Computer Sciences')
+
+
+SELECT DISTINCT E.sid FROM enroll E, course C, section S WHERE E.cno=C.cno AND E.dname= C.dname AND E.sectno=S.sectno AND C.cno=S.cno AND C.dname=S.dname AND (C.cno, S.sectno) NOT IN (SELECT DISTINCT C.cno, S.sectno FROM course C, section S WHERE S.cno=C.cno AND S.dname=C.dname AND 11> ( SELECT COUNT(*) FROM student T, enroll E WHERE T.sid=E.sid AND E.cno=C.cno AND E.sectno=S.sectno AND E.dname=C.dname)) 
+
+ sid 
+-----
+   2
+   7
+   8
+  10
+  16
+  20
+  22
+  25
+  31
+  33
+  39
+  41
+  42
+  44
+  46
+  51
+  52
+  61
+  62
+  63
+  64
+  67
+  68
+  71
+  72
+  75
+  77
+  80
+  82
+  83
+  84
+  86
+  87
+  89
+  90
+  92
+  99
+ 100
+ 103
+(39 rows)
+
+
+
